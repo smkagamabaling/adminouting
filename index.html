@@ -48,6 +48,7 @@
                     </button>
                  </div>
             </div>
+
             <div id="loading" class="text-center py-10">Memuatkan data...</div>
             <div id="error" class="hidden text-center text-red-500 py-10"></div>
             <div id="tableContainer" class="overflow-x-auto hidden">
@@ -92,7 +93,7 @@
     </footer>
 
     <script>
-        const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbw8emL3lIQtG6fnHvZFcL1p5J2EOcV08g1lADyl_C0xTN1_B9YtDDWSYmbh2DTvoEF3DA/exec';
+        const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbwGH5ydgDb9GFQrqP3B24w2J5F04SdC7ojEhFVCDsooFWBzTwxXnHECIdqhCFaNi2UyvQ/exec';
 
         const loadingDiv = document.getElementById('loading');
         const errorDiv = document.getElementById('error');
@@ -111,23 +112,14 @@
         const adminRoles = { 'pgt': 'Pengetua', 'pkh': 'PK HEM', 'kwd': 'Ketua Warden' };
         let pendingAction = null;
 
-        function updateSyncTime(isInitial = false) {
-            const now = new Date();
-            const timeString = now.toLocaleTimeString('ms-MY', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-            if (isInitial) {
-                lastSyncTimeEl.innerHTML = `Auto-kemaskini setiap 5 minit.`;
-            } else {
-                lastSyncTimeEl.innerHTML = `Terkini pada: ${timeString}`;
-            }
-        }
-
         function renderTable(applications, students) {
             adminTableBody.innerHTML = '';
-            const studentMap = new Map(students.map(s => [s.kod_waris, s]));
+            const studentMap = new Map(students.map(s => [`${s.kod_waris}||${s.nama_anak}`, s]));
+            
             const sortedApps = applications.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
 
             sortedApps.forEach(app => {
-                const student = studentMap.get(app.kod_waris);
+                const student = studentMap.get(`${app.kod_waris}||${app.nama_anak}`);
                 const row = adminTableBody.insertRow();
                 let buktiHtml = '<span class="text-gray-400">Tiada</span>';
                 if (app.url_bukti && !app.url_bukti.includes('RALAT')) {
@@ -136,23 +128,20 @@
                 
                 let tarikhLulusHtml = '-';
                 if (app.tarikh_kelulusan) {
-                    tarikhLulusHtml = new Date(app.tarikh_kelulusan).toLocaleString('ms-MY', {
-                        day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit'
-                    });
+                    tarikhLulusHtml = new Date(app.tarikh_kelulusan).toLocaleString('ms-MY', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
                 }
-
                 row.innerHTML = `
-                    <td class="px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${student ? student.nama_anak : 'N/A'}</td>
+                    <td class="px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${app.nama_anak || 'N/A'}</td>
                     <td class="px-4 py-4 text-sm text-gray-600">${app.tujuan}</td>
                     <td class="px-4 py-4 whitespace-nowrap text-sm">${buktiHtml}</td>
                     <td class="px-4 py-4 whitespace-nowrap text-sm"><span class="${getStatusBadge(app.status)}">${app.status}</span></td>
                     <td class="px-4 py-4 whitespace-nowrap text-sm font-semibold text-gray-700">${app.pelulus || '-'}</td>
                     <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-500">${tarikhLulusHtml}</td>
                     <td class="px-4 py-4 whitespace-nowrap text-sm font-medium">
-                        <select class="status-dropdown border border-gray-300 rounded-md p-1 text-xs" data-id="${app.id_permohonan}" data-current-status="${app.status}">
-                            <option value="">Pilih Tindakan</option>
+                        <select class="status-dropdown border border-gray-300 rounded-md p-1 text-xs" data-id="${app.id_permohonan}">
+                            <option value="">Pilih</option>
                             <option value="LULUS">Lulus</option>
-                            <option value="TOLAK">Tidak Lulus</option>
+                            <option value="TOLAK">Tolak</option>
                             <option value="DIBATALKAN">Batal</option>
                         </select>
                     </td>
@@ -161,17 +150,17 @@
         }
 
         // ... (semua kod JavaScript yang lain kekal sama) ...
+        function updateSyncTime(isInitial = false) { const now = new Date(); const timeString = now.toLocaleTimeString('ms-MY', { hour: '2-digit', minute: '2-digit', second: '2-digit' }); if (isInitial) { lastSyncTimeEl.innerHTML = `Auto-kemaskini setiap 5 minit.`; } else { lastSyncTimeEl.innerHTML = `Terkini pada: ${timeString}`; } }
         function getStatusBadge(status) { status = (status || '').toUpperCase(); let classes = 'px-2 inline-flex text-xs leading-5 font-semibold rounded-full '; if (status === 'LULUS') return classes + 'bg-green-100 text-green-800'; if (status === 'TOLAK' || status === 'DIBATALKAN') return classes + 'bg-red-100 text-red-800'; return classes + 'bg-yellow-100 text-yellow-800'; }
         function updateKPIs(applications) { let baru = 0, lulus = 0, tolak = 0, batal = 0; applications.forEach(app => { const status = (app.status || '').toUpperCase(); if (status === 'BARU') baru++; else if (status === 'LULUS') lulus++; else if (status === 'TOLAK') tolak++; else if (status === 'DIBATALKAN') batal++; }); document.getElementById('countBaru').textContent = baru; document.getElementById('countLulus').textContent = lulus; document.getElementById('countTolak').textContent = tolak; document.getElementById('countBatal').textContent = batal; }
         async function postData(payload) { await fetch(WEB_APP_URL, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }); }
         async function loadData(isManual = false) { const spinner = document.getElementById('refreshSpinner'); if (isManual) { refreshButton.disabled = true; spinner.classList.remove('hidden'); } const loadingDiv = document.getElementById('loading'); const errorDiv = document.getElementById('error'); const tableContainer = document.getElementById('tableContainer'); loadingDiv.style.display = 'block'; errorDiv.style.display = 'none'; tableContainer.style.display = 'none'; try { const response = await fetch(WEB_APP_URL); if (!response.ok) throw new Error(`Ralat Rangkaian: ${response.status}`); const result = await response.json(); if (result.status === 'error') throw new Error(result.message); updateKPIs(result.data.permohonan); renderTable(result.data.permohonan, result.data.murid); updateSyncTime(); tableContainer.style.display = 'block'; } catch (err) { errorDiv.textContent = `Gagal memuatkan data: ${err.message}`; } finally { loadingDiv.style.display = 'none'; if (isManual) { refreshButton.disabled = false; spinner.classList.add('hidden'); } } }
         adminTableBody.addEventListener('change', (e) => { if (e.target.classList.contains('status-dropdown')) { const dropdown = e.target; const appId = dropdown.dataset.id; const newStatus = dropdown.value; if (!newStatus) return; pendingAction = { appId, newStatus, dropdown }; adminAuthModal.classList.remove('hidden'); adminCodeInput.focus(); dropdown.value = ""; } });
         adminCodeInput.addEventListener('input', () => { const code = adminCodeInput.value.toLowerCase(); const role = adminRoles[code]; adminRoleDisplay.textContent = role ? `Jawatan: ${role}` : ''; authError.textContent = ''; });
-        confirmAuthButton.addEventListener('click', async () => { if (!pendingAction) return; const adminCode = adminCodeInput.value; if (!adminRoles[adminCode.toLowerCase()]) { authError.textContent = 'Kod admin tidak sah.'; return; } const { appId, newStatus, dropdown } = pendingAction; dropdown.disabled = true; adminAuthModal.classList.add('hidden'); try { await postData({ action: 'updateApplicationStatus', data: { id_permohonan: appId, new_status: newStatus, admin_code: adminCode } }); setTimeout(()=>loadData(true), 1500); } catch (err) { alert(`Gagal mengemaskini status: ${err.message}`); dropdown.disabled = false; } finally { pendingAction = null; adminCodeInput.value = ''; adminRoleDisplay.textContent = ''; } });
+        confirmAuthButton.addEventListener('click', async () => { if (!pendingAction) return; const adminCode = adminCodeInput.value; if (!adminRoles[adminCode.toLowerCase()]) { authError.textContent = 'Kod admin tidak sah.'; return; } const { appId, newStatus, dropdown } = pendingAction; dropdown.disabled = true; adminAuthModal.classList.add('hidden'); try { await postData({ action: 'updateApplicationStatus', data: { id_permohonan: appId, new_status: newStatus, admin_code: adminCode } }); setTimeout(() => loadData(true), 1500); } catch (err) { alert(`Gagal mengemaskini status: ${err.message}`); dropdown.disabled = false; } finally { pendingAction = null; adminCodeInput.value = ''; adminRoleDisplay.textContent = ''; } });
         cancelAuthButton.addEventListener('click', () => { adminAuthModal.classList.add('hidden'); pendingAction = null; adminCodeInput.value = ''; adminRoleDisplay.textContent = ''; });
         refreshButton.addEventListener('click', () => loadData(true));
         document.addEventListener('DOMContentLoaded', () => { loadData(true); updateSyncTime(true); setInterval(() => { loadData(false); }, 300000); });
-
     </script>
 </body>
 </html>
