@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard Admin - Sistem Permohonan</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .kpi-box {
+            border-radius: 0.75rem;
+            padding: 1.5rem;
+            color: white;
+            transition: transform 0.2s;
+        }
+        .kpi-box:hover {
+            transform: translateY(-5px);
+        }
+    </style>
+</head>
+<body class="bg-gray-100">
+    <div class="container mx-auto p-4 sm:p-6 lg:p-8">
+        <header class="mb-8">
+            <h1 class="text-3xl font-bold text-gray-900">Dashboard Admin</h1>
+            <p class="text-gray-600">Sistem Permohonan Keluar Asrama/Pulang Bermalam</p>
+        </header>
+
+        <!-- Bahagian KPI -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            <div class="kpi-box bg-orange-500 shadow-lg"><h2 class="text-lg font-semibold text-orange-100">Permohonan Baru</h2><p id="countBaru" class="text-4xl font-bold mt-2">0</p></div>
+            <div class="kpi-box bg-green-500 shadow-lg"><h2 class="text-lg font-semibold text-green-100">Diluluskan</h2><p id="countLulus" class="text-4xl font-bold mt-2">0</p></div>
+            <div class="kpi-box bg-red-500 shadow-lg"><h2 class="text-lg font-semibold text-red-100">Tidak Diluluskan</h2><p id="countTolak" class="text-4xl font-bold mt-2">0</p></div>
+            <div class="kpi-box bg-gray-500 shadow-lg"><h2 class="text-lg font-semibold text-gray-100">Dibatalkan</h2><p id="countBatal" class="text-4xl font-bold mt-2">0</p></div>
+        </div>
+
+        <!-- Bahagian Jadual Permohonan -->
+        <div class="bg-white rounded-xl shadow-lg p-6">
+            <div class="flex flex-col sm:flex-row justify-between items-center mb-4">
+                 <h2 class="text-xl font-bold text-gray-800 mb-4 sm:mb-0">Senarai Permohonan</h2>
+                 <div class="flex items-center gap-3">
+                    <div class="border border-black rounded-lg h-10 flex items-center justify-center px-3">
+                        <p id="lastSyncTime" class="text-xs text-red-500 text-center leading-tight"></p>
+                    </div>
+                    <button id="refreshButton" class="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 text-sm font-medium flex items-center justify-center gap-2 h-10">
+                        <span id="refreshButtonText">Muat Semula</span>
+                        <div id="refreshSpinner" class="hidden w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    </button>
+                 </div>
+            </div>
+            <div id="loading" class="text-center py-10">Memuatkan data...</div>
+            <div id="error" class="hidden text-center text-red-500 py-10"></div>
+            <div id="tableContainer" class="overflow-x-auto hidden">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Nama Murid</th>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tujuan</th>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Bukti</th>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status Semasa</th>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Pelulus</th>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tarikh Tindakan</th>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tindakan</th>
+                        </tr>
+                    </thead>
+                    <tbody id="adminTableBody" class="bg-white divide-y divide-gray-200"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== MODAL PENGESAHAN ADMIN ===== -->
+    <div id="adminAuthModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 hidden z-50">
+        <div class="bg-white p-6 rounded-lg shadow-xl w-full max-w-sm">
+            <h3 class="text-lg font-bold mb-4">Pengesahan Admin</h3>
+            <p class="text-sm text-gray-600 mb-4">Sila masukkan kod pengesahan anda untuk meneruskan tindakan.</p>
+            <div>
+                <label for="adminCodeInput" class="block text-sm font-medium text-gray-700">Kod Admin</label>
+                <input type="password" id="adminCodeInput" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
+                <p id="adminRoleDisplay" class="mt-2 text-sm font-semibold text-blue-600 h-5"></p>
+                <p id="authError" class="text-red-500 text-xs mt-1 h-4"></p>
+            </div>
+            <div class="mt-6 flex justify-end gap-3">
+                <button id="cancelAuthButton" type="button" class="bg-gray-200 text-gray-700 px-4 py-2 rounded-md hover:bg-gray-300">Batal</button>
+                <button id="confirmAuthButton" type="button" class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700">Sahkan Tindakan</button>
+            </div>
+        </div>
+    </div>
+    
+    <footer class="text-center text-sm text-gray-500 mt-12 py-4 border-t">
+        &copy; 2025 Hak Cipta Terpelihara Tc. Bakrizal Fahmi bin Abu Bakar.
+    </footer>
+
+    <script>
+        const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbw8emL3lIQtG6fnHvZFcL1p5J2EOcV08g1lADyl_C0xTN1_B9YtDDWSYmbh2DTvoEF3DA/exec';
+
+        const loadingDiv = document.getElementById('loading');
+        const errorDiv = document.getElementById('error');
+        const tableContainer = document.getElementById('tableContainer');
+        const adminTableBody = document.getElementById('adminTableBody');
+        const refreshButton = document.getElementById('refreshButton');
+        const lastSyncTimeEl = document.getElementById('lastSyncTime');
+        
+        const adminAuthModal = document.getElementById('adminAuthModal');
+        const adminCodeInput = document.getElementById('adminCodeInput');
+        const adminRoleDisplay = document.getElementById('adminRoleDisplay');
+        const authError = document.getElementById('authError');
+        const confirmAuthButton = document.getElementById('confirmAuthButton');
+        const cancelAuthButton = document.getElementById('cancelAuthButton');
+        
+        const adminRoles = { 'pgt': 'Pengetua', 'pkh': 'PK HEM', 'kwd': 'Ketua Warden' };
+        let pendingAction = null;
+
+        function updateSyncTime(isInitial = false) {
+            const now = new Date();
+            const timeString = now.toLocaleTimeString('ms-MY', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+            if (isInitial) {
+                lastSyncTimeEl.innerHTML = `Auto-kemaskini setiap 5 minit.`;
+            } else {
+                lastSyncTimeEl.innerHTML = `Terkini pada: ${timeString}`;
+            }
+        }
+
+        function renderTable(applications, students) {
+            adminTableBody.innerHTML = '';
+            const studentMap = new Map(students.map(s => [s.kod_waris, s]));
+            const sortedApps = applications.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+
+            sortedApps.forEach(app => {
+                const student = studentMap.get(app.kod_waris);
+                const row = adminTableBody.insertRow();
+                let buktiHtml = '<span class="text-gray-400">Tiada</span>';
+                if (app.url_bukti && !app.url_bukti.includes('RALAT')) {
+                    buktiHtml = `<a href="${app.url_bukti}" target="_blank" rel="noopener noreferrer" class="text-blue-600 hover:underline">Lihat Bukti</a>`;
+                }
+                
+                let tarikhLulusHtml = '-';
+                if (app.tarikh_kelulusan) {
+                    tarikhLulusHtml = new Date(app.tarikh_kelulusan).toLocaleString('ms-MY', {
+                        day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit'
+                    });
+                }
+
+                row.innerHTML = `
+                    <td class="px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${student ? student.nama_anak : 'N/A'}</td>
+                    <td class="px-4 py-4 text-sm text-gray-600">${app.tujuan}</td>
+                    <td class="px-4 py-4 whitespace-nowrap text-sm">${buktiHtml}</td>
+                    <td class="px-4 py-4 whitespace-nowrap text-sm"><span class="${getStatusBadge(app.status)}">${app.status}</span></td>
+                    <td class="px-4 py-4 whitespace-nowrap text-sm font-semibold text-gray-700">${app.pelulus || '-'}</td>
+                    <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-500">${tarikhLulusHtml}</td>
+                    <td class="px-4 py-4 whitespace-nowrap text-sm font-medium">
+                        <select class="status-dropdown border border-gray-300 rounded-md p-1 text-xs" data-id="${app.id_permohonan}" data-current-status="${app.status}">
+                            <option value="">Pilih Tindakan</option>
+                            <option value="LULUS">Lulus</option>
+                            <option value="TOLAK">Tidak Lulus</option>
+                            <option value="DIBATALKAN">Batal</option>
+                        </select>
+                    </td>
+                `;
+            });
+        }
+
+        // ... (semua kod JavaScript yang lain kekal sama) ...
+        function getStatusBadge(status) { status = (status || '').toUpperCase(); let classes = 'px-2 inline-flex text-xs leading-5 font-semibold rounded-full '; if (status === 'LULUS') return classes + 'bg-green-100 text-green-800'; if (status === 'TOLAK' || status === 'DIBATALKAN') return classes + 'bg-red-100 text-red-800'; return classes + 'bg-yellow-100 text-yellow-800'; }
+        function updateKPIs(applications) { let baru = 0, lulus = 0, tolak = 0, batal = 0; applications.forEach(app => { const status = (app.status || '').toUpperCase(); if (status === 'BARU') baru++; else if (status === 'LULUS') lulus++; else if (status === 'TOLAK') tolak++; else if (status === 'DIBATALKAN') batal++; }); document.getElementById('countBaru').textContent = baru; document.getElementById('countLulus').textContent = lulus; document.getElementById('countTolak').textContent = tolak; document.getElementById('countBatal').textContent = batal; }
+        async function postData(payload) { await fetch(WEB_APP_URL, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }); }
+        async function loadData(isManual = false) { const spinner = document.getElementById('refreshSpinner'); if (isManual) { refreshButton.disabled = true; spinner.classList.remove('hidden'); } const loadingDiv = document.getElementById('loading'); const errorDiv = document.getElementById('error'); const tableContainer = document.getElementById('tableContainer'); loadingDiv.style.display = 'block'; errorDiv.style.display = 'none'; tableContainer.style.display = 'none'; try { const response = await fetch(WEB_APP_URL); if (!response.ok) throw new Error(`Ralat Rangkaian: ${response.status}`); const result = await response.json(); if (result.status === 'error') throw new Error(result.message); updateKPIs(result.data.permohonan); renderTable(result.data.permohonan, result.data.murid); updateSyncTime(); tableContainer.style.display = 'block'; } catch (err) { errorDiv.textContent = `Gagal memuatkan data: ${err.message}`; } finally { loadingDiv.style.display = 'none'; if (isManual) { refreshButton.disabled = false; spinner.classList.add('hidden'); } } }
+        adminTableBody.addEventListener('change', (e) => { if (e.target.classList.contains('status-dropdown')) { const dropdown = e.target; const appId = dropdown.dataset.id; const newStatus = dropdown.value; if (!newStatus) return; pendingAction = { appId, newStatus, dropdown }; adminAuthModal.classList.remove('hidden'); adminCodeInput.focus(); dropdown.value = ""; } });
+        adminCodeInput.addEventListener('input', () => { const code = adminCodeInput.value.toLowerCase(); const role = adminRoles[code]; adminRoleDisplay.textContent = role ? `Jawatan: ${role}` : ''; authError.textContent = ''; });
+        confirmAuthButton.addEventListener('click', async () => { if (!pendingAction) return; const adminCode = adminCodeInput.value; if (!adminRoles[adminCode.toLowerCase()]) { authError.textContent = 'Kod admin tidak sah.'; return; } const { appId, newStatus, dropdown } = pendingAction; dropdown.disabled = true; adminAuthModal.classList.add('hidden'); try { await postData({ action: 'updateApplicationStatus', data: { id_permohonan: appId, new_status: newStatus, admin_code: adminCode } }); setTimeout(()=>loadData(true), 1500); } catch (err) { alert(`Gagal mengemaskini status: ${err.message}`); dropdown.disabled = false; } finally { pendingAction = null; adminCodeInput.value = ''; adminRoleDisplay.textContent = ''; } });
+        cancelAuthButton.addEventListener('click', () => { adminAuthModal.classList.add('hidden'); pendingAction = null; adminCodeInput.value = ''; adminRoleDisplay.textContent = ''; });
+        refreshButton.addEventListener('click', () => loadData(true));
+        document.addEventListener('DOMContentLoaded', () => { loadData(true); updateSyncTime(true); setInterval(() => { loadData(false); }, 300000); });
+
+    </script>
+</body>
+</html>
